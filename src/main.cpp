@@ -1,75 +1,65 @@
 #include <psp2/kernel/processmgr.h>
 #include <psp2/ctrl.h>
+#include <psp2/touch.h>
+#include <psp2/display.h>
+
+#include <string.h>
 
 #include <vita2d.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-
-// Structure for game state
-typedef struct {
-    int target;
-    int digits[6];
-} DigitsGame;
-
-// Initialize game state (set a target and generate some random digits)
-void init_game(DigitsGame *game) {
-    // For demonstration, set a fixed target
-    game->target = 100;
-    srand(time(NULL));
-    for (int i = 0; i < 6; i++) {
-         game->digits[i] = (rand() % 9) + 1;  // random digit from 1 to 9
-    }
-}
-
-// Update game state based on input (for now, pressing CROSS resets the game)
-void update_game(DigitsGame *game, SceCtrlData ctrl) {
-    if (ctrl.buttons & SCE_CTRL_CROSS) {  // CROSS button to reset game
-         init_game(game);
-    }
-}
-
-// Render the game state on-screen
-void render_game(DigitsGame *game, vita2d_pvf *pvf) {
-    char buffer[64];
-
-    // Draw target number
-    sprintf(buffer, "Target: %d", game->target);
-    vita2d_pvf_draw_text(pvf, 20, 50, RGBA8(255, 255, 255, 255), 1.0f, buffer);
-
-    // Draw digits available
-    for (int i = 0; i < 6; i++) {
-        sprintf(buffer, "Digit %d: %d", i+1, game->digits[i]);
-        vita2d_pvf_draw_text(pvf, 20, 100 + (i * 30), RGBA8(200, 200, 200, 255), 1.0f, buffer);
-    }
-}
+#include "game_state.h"
+#include "rendering.h"
+#include "input.h"
 
 int main(void) {
     DigitsGame game;
-    SceCtrlData ctrl;
+    SceTouchData touch, prevTouch;
+    SceCtrlData pad, prevPad;
     vita2d_pvf *pvf;
 
+    // Initialize PS Vita systems
+    sceCtrlSetSamplingMode(SCE_CTRL_MODE_DIGITAL);
+    sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
+    
     vita2d_init();
+    vita2d_set_clear_color(RGBA8(20, 30, 50, 255));
 
     pvf = vita2d_load_default_pvf();
 
+    // Initialize game state
     init_game(&game);
+    
+    // Clear input state
+    memset(&prevTouch, 0, sizeof(SceTouchData));
+    memset(&prevPad, 0, sizeof(SceCtrlData));
 
     while (1) {
-        sceCtrlPeekBufferPositive(0, &ctrl, 1);
+        // Update touch input
+        memcpy(&prevTouch, &touch, sizeof(SceTouchData));
+        sceTouchPeek(SCE_TOUCH_PORT_FRONT, &touch, 1);
+        
+        // Update pad input
+        memcpy(&prevPad, &pad, sizeof(SceCtrlData));
+        sceCtrlPeekBufferPositive(0, &pad, 1);
+        
+        // Check for exit condition
+        if ((pad.buttons & SCE_CTRL_START) && (pad.buttons & SCE_CTRL_SELECT)) break;
 
-        if (ctrl.buttons & SCE_CTRL_START) break;
-
-
+        // Update and render game
         vita2d_start_drawing();
         vita2d_clear_screen();
 
-        update_game(&game, ctrl);
+        // Update game state
+        update_game(&game, touch, prevTouch, pad);
+        
+        // Render the game
         render_game(&game, pvf);
 
         vita2d_end_drawing();
         vita2d_swap_buffers();
+        
+        // Maintain frame rate
+        sceDisplayWaitVblankStart();
     }
     
     vita2d_fini();

@@ -28,7 +28,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 # Include directory for your source files.
 include_directories(
   ../common
-  # ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # Add library directories if needed.
@@ -39,7 +39,9 @@ link_directories(
 # Build the executable.
 add_executable(${PROJECT_NAME}
   src/main.cpp
-  # src/game_logic.c
+  src/game_state.cpp
+  src/rendering.cpp
+  src/input.cpp
 )
 
 # Link against the essential Vita libraries:
@@ -50,8 +52,10 @@ add_executable(${PROJECT_NAME}
 # - SceAppMgr_stub: For functions like sceAppMgrGetBudgetInfo
 # - SceFont_stub: For font and text operations inside vita2d
 # - m: Math library (for cosf, sinf, tan)
+# - SceTouch_stub: For touchscreen functions
 target_link_libraries(${PROJECT_NAME}
   SceCtrl_stub
+  SceTouch_stub
   vita2d
   SceDisplay_stub
   SceGxm_stub
